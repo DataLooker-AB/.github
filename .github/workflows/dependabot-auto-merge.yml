@@ -1,0 +1,43 @@
+name: '🤖 Dependabot - auto-merge'
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+    secrets:
+      gh_token:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: 'Dependabot auto-merge'
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+      security-events: read
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b # v2.4.0
+        with:
+          github-token: ${{ secrets.gh_token }}
+
+      - name: Merge PR
+        if: |
+          steps.metadata.outputs.update-type != 'version-update:semver-major' ||
+          contains(github.event.pull_request.labels.*.name, 'security')
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.gh_token }}
